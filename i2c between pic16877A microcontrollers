@@ -1,0 +1,76 @@
+ File:   SPIbetween2PIC.c
+ * Author: mitxar
+ *
+ * Created on December 18, 2023, 9:07 AM
+ */
+#include <xc.h>
+#pragma config PWRTE = OFF
+#pragma config WDTE = OFF
+#pragma config CP = OFF
+#pragma config CPD = OFF
+#pragma config LVP = ON
+#pragma config BOREN = OFF
+#pragma config FOSC = XT;
+#define __XTAL_FREQ 20000000
+#define __delay_ms;
+//master code SDO pin output 
+void MasterInit (){
+    TRISC5 = 0;
+    TRISC4 = 1;
+    TRISC3 = 0;
+    TRISA5 = 0;
+    
+    SSPSTAT = 0x40; //SMP ve SCK bitlerini teyin edirik 
+    SSPCON = 0x31; // 
+    
+}
+unsigned char SPIWrite(unsigned char data){
+    SSPBUF=data;
+    while(!SSPSTATbits.BF){
+       return 0; 
+    }
+    return SSPBUF;
+}
+void main(void) {
+    MasterInit();
+    unsigned char receiveddata;
+    unsigned char dataTosend = 0x55;
+    while(1){
+        PORTAbits.RA5=1;
+        receiveddata = SPIWrite(dataTosend);
+        PORTAbits.RA5=0; //SS pinini HIGH etmekle biz SPI kommunikasiyani bitiririk
+        __delay_ms(1000);        
+    }
+}
+//Slave pic16d877A source code 
+#include <xc.h>
+
+#pragma config PWRTE = OFF
+#pragma config WDTE = OFF
+#pragma config CP = OFF
+#pragma config CPD = OFF
+#pragma config LVP = ON
+#pragma config BOREN = OFF
+#pragma config FOSC = XT;
+#define __XTAL_FREQ 20000000
+void SlaveInit(){
+    TRISC5=0; //SCK
+    TRISC4=1; //SDI
+    TRISC3=0;//SDO
+    TRISA5=1; // SS  
+    SSPSTAT=0x40;
+    SSPCON = 0x32; // SSPCON = 0b0011 0010 ve burda SLave mode enable edildi,SS pin enable edildi , SSPEN=1; CKP=1; SSPM3;SSPM0 = 0010   
+}
+unsigned char SPIRead(){
+    while(SSPSTATbits.BF);
+    return SSPBUF;
+}
+void main(void) {
+    SlaveInit();
+    unsigned char receiveddata;
+    while(1){
+        if(!PORTAbits.RA5){
+            receiveddata = SPIRead();
+        }
+    }
+}
